@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -7,12 +8,14 @@
 #include <iostream>
 #include <ratio>
 
+using std::uint32_t;
+
 /**
     Represents a Record Object
 */
 struct QBRecord
 {
-    uint column0; // unique id column
+    uint32_t column0; // unique id column
     std::string column1;
     long column2;
     std::string column3;
@@ -28,12 +31,12 @@ typedef std::vector<QBRecord> QBRecordCollection;
     records - the initial set of records to filter
     matchString - the string to search for
 */
-QBRecordCollection QBFindMatchingRecords(const QBRecordCollection& records, const std:string& columnName, const std::string& matchString)
+QBRecordCollection QBFindMatchingRecords(const QBRecordCollection& records, const std::string& columnName, const std::string& matchString)
     {
     QBRecordCollection result;
     std::copy_if(records.begin(), records.end(), std::back_inserter(result), [&](QBRecord rec){
         if (columnName == "column0") {
-            uint matchValue = std::stoul(matchString);
+            uint32_t matchValue = std::stoul(matchString);
             return matchValue == rec.column0;
         } else if (columnName == "column1") {
             return rec.column1.find(matchString) != std::string::npos;
@@ -58,7 +61,7 @@ QBRecordCollection populateDummyData(const std::string& prefix, int numRecords)
     {
     QBRecordCollection data;
     data.reserve(numRecords);
-    for (uint i = 0; i < numRecords; i++)
+    for (uint32_t i = 0; i < numRecords; i++)
         {
         QBRecord rec = { i, prefix + std::to_string(i), i % 100, std::to_string(i) + prefix };
         data.emplace_back(rec);
