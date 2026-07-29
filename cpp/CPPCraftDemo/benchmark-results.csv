@@ -1,7 +1,7 @@
 scenario,records,iterations,average_ms,matches_found
-string-hit,1000,10000,0.085,1
-numeric-hit,1000,10000,0.188,10
-string-hit,10000,1000,0.904,11
-numeric-hit,10000,1000,1.899,100
-string-hit,100000,100,9.212,111
-numeric-hit,100000,100,18.925,1000
+string-hit,1000,10000,0.014703,1
+numeric-hit,1000,10000,0.001400,10
+string-hit,10000,1000,0.183042,11
+numeric-hit,10000,1000,0.010002,100
+string-hit,100000,100,2.260540,111
+numeric-hit,100000,100,0.349930,1000

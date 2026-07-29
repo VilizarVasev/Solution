@@ -111,8 +111,9 @@ void Benchmark::writeResults(const std::string& outputPath, bool append) const
     {
         output << "scenario,records,iterations,average_ms,matches_found\n";
     }
-    // Fixed precision produces stable, readable diffs between commits.
-    output << std::fixed << std::setprecision(3);
+    // Microsecond-level precision expressed in milliseconds keeps very fast
+    // searches distinguishable while retaining a single reporting unit.
+    output << std::fixed << std::setprecision(6);
     for (const auto& result : results)
     {
         output << result.scenario << ','
@@ -128,7 +129,7 @@ void Benchmark::printResults() const
     for (const auto& result : results)
     {
         std::cout << result.scenario << ": "
-                  << std::fixed << std::setprecision(3)
+                  << std::fixed << std::setprecision(6)
                   << result.averageMilliseconds << " ms/search, matches found: "
                   << result.matchesFound
                   << std::endl;
