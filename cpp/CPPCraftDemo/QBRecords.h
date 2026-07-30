@@ -27,6 +27,17 @@ QBRecordCollection QBFindMatchingRecords(
     const std::string& columnName,
     const std::string& matchString);
 
+/**
+ * Deletes the record with the unique column0 ID from the same collection.
+ *
+ * Returns true when a record is deleted and false when the ID is not found.
+ * The last record replaces the deleted record, so collection order is not
+ * preserved.
+ */
+bool DeleteRecordByID(
+    QBRecordCollection& records,
+    uint32_t id);
+
 /** Creates deterministic records used by the demo and performance suite. */
 QBRecordCollection populateDummyData(
     const std::string& prefix,

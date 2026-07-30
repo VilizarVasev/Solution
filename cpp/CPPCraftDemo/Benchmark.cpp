@@ -33,11 +33,47 @@ void Benchmark::run(const std::vector<Scenario>& scenarios)
     results.clear();
     for (const auto& scenario : scenarios)
     {
-        results.push_back(runScenario(scenario));
+        if (scenario.operation == Operation::DeleteById)
+        {
+            results.push_back(deleteRecord(scenario));
+            continue;
+        }
+
+        results.push_back(measureFindRecords(scenario));
     }
 }
 
-Benchmark::Result Benchmark::runScenario(
+Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
+{
+    if (scenario.columnName != "column0")
+    {
+        throw std::invalid_argument(
+            "DeleteById scenarios must target column0");
+    }
+
+    const uint32_t id = std::stoul(scenario.matchString);
+    if (!DeleteRecordByID(records, id))
+    {
+        throw std::runtime_error(
+            scenario.name + " could not find the requested record ID");
+    }
+
+    // Deletion is performed once between measured searches. Zero iterations
+    // and blank measurement columns distinguish it from benchmarked finds.
+    return
+    {
+        scenario.name,
+        scenario.operation,
+        scenario.columnName,
+        scenario.matchString,
+        records.size(),
+        0,
+        0.0,
+        0
+    };
+}
+
+Benchmark::Result Benchmark::measureFindRecords(
     const Scenario& scenario) const
 {
     // Warm-up searches prime code and CPU caches. The volatile accumulator
@@ -82,6 +118,11 @@ Benchmark::Result Benchmark::runScenario(
     return
     {
         scenario.name,
+        scenario.operation,
+        scenario.columnName,
+        scenario.matchString,
+        records.size(),
+        config.measuredIterations,
         elapsedMilliseconds / config.measuredIterations,
         matchesFound
     };
@@ -109,16 +150,36 @@ void Benchmark::writeResults(const std::string& outputPath, bool append) const
 
     if (!append)
     {
-        output << "scenario,records,iterations,average_ms,matches_found\n";
+        output << "scenario,operation,column,match_value,records,iterations,average_ms,matches_found\n";
     }
+    else
+    {
+        // Visually separate each database-size test sequence in the report.
+        output << '\n';
+    }
+
     // Microsecond-level precision expressed in milliseconds keeps very fast
     // searches distinguishable while retaining a single reporting unit.
     output << std::fixed << std::setprecision(6);
     for (const auto& result : results)
     {
-        output << result.scenario << ','
-               << config.recordCount << ','
-               << config.measuredIterations << ','
+        output << result.scenario << ',';
+
+        if (result.operation == Operation::DeleteById)
+        {
+            output << "delete,"
+                   << result.columnName << ','
+                   << result.matchValue << ','
+                   << result.recordCount << ','
+                   << result.iterations << ",,\n";
+            continue;
+        }
+
+        output << "find,"
+               << result.columnName << ','
+               << result.matchValue << ','
+               << result.recordCount << ','
+               << result.iterations << ','
                << result.averageMilliseconds << ','
                << result.matchesFound << '\n';
     }
@@ -128,6 +189,15 @@ void Benchmark::printResults() const
 {
     for (const auto& result : results)
     {
+        if (result.operation == Operation::DeleteById)
+        {
+            std::cout << result.scenario << ": deleted "
+                      << result.columnName << '=' << result.matchValue
+                      << ", records: " << result.recordCount
+                      << std::endl;
+            continue;
+        }
+
         std::cout << result.scenario << ": "
                   << std::fixed << std::setprecision(6)
                   << result.averageMilliseconds << " ms/search, matches found: "

@@ -25,7 +25,16 @@ int main(int argc, char* argv[])
         const std::vector<Benchmark::Scenario> scenarios =
         {
             { "string-hit", "column1", "testdata500" },
-            { "numeric-hit", "column2", "24" }
+            { "numeric-before-delete", "column2", "24" },
+            { "id-before-delete", "column0", "524" },
+            {
+                "delete-id-524",
+                "column0",
+                "524",
+                Benchmark::Operation::DeleteById
+            },
+            { "id-after-delete", "column0", "524" },
+            { "numeric-after-delete", "column2", "24" }
         };
 
         // The suite applies every scenario to every configured database size.

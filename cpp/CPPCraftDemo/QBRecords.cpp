@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iterator>
 #include <unordered_map>
+#include <utility>
 
 /** Centralizes the full scan and copy operation shared by non-unique columns. */
 template <typename Predicate>
@@ -113,6 +114,35 @@ QBRecordCollection QBFindMatchingRecords(const QBRecordCollection& records, cons
     }
 
     return findFunction->second(records, matchString);
+}
+
+bool DeleteRecordByID(QBRecordCollection& records, uint32_t id)
+{
+    // IDs are unique but records are unsorted, so deletion begins with a
+    // linear search and stops at the first matching ID.
+    const auto record = std::find_if(
+        records.begin(),
+        records.end(),
+        [id](const QBRecord& currentRecord)
+        {
+            return currentRecord.column0 == id;
+        });
+
+    if (record == records.end())
+    {
+        return false;
+    }
+
+    // Order is not part of the collection contract. Move the last record into
+    // the deleted slot to avoid shifting every following vector element.
+    const auto lastRecord = records.end() - 1;
+    if (record != lastRecord)
+    {
+        *record = std::move(*lastRecord);
+    }
+
+    records.pop_back();
+    return true;
 }
 
 QBRecordCollection populateDummyData(const std::string& prefix, uint32_t numRecords)

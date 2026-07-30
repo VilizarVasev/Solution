@@ -15,6 +15,13 @@
 class Benchmark
 {
 public:
+    /** Identifies whether a scenario searches or mutates the collection. */
+    enum class Operation
+    {
+        Find,
+        DeleteById
+    };
+
     /** Controls the database size and the number of benchmark repetitions. */
     struct Config
     {
@@ -39,6 +46,9 @@ public:
 
         // Search value passed to QBFindMatchingRecords.
         std::string matchString;
+
+        // Search is the default; delete steps use matchString as a column0 ID.
+        Operation operation = Operation::Find;
     };
 
     /** Validates the configuration and generates the configured records. */
@@ -65,12 +75,20 @@ private:
     struct Result
     {
         std::string scenario;
+        Operation operation;
+        std::string columnName;
+        std::string matchValue;
+        std::size_t recordCount;
+        int iterations;
         double averageMilliseconds;
         std::size_t matchesFound;
     };
 
+    /** Executes a mutation step and returns a non-timed operation result. */
+    Result deleteRecord(const Scenario& scenario);
+
     /** Warms up and measures one scenario against this instance's records. */
-    Result runScenario(const Scenario& scenario) const;
+    Result measureFindRecords(const Scenario& scenario) const;
 
     // Configuration and generated data remain unchanged during a run.
     Config config;
