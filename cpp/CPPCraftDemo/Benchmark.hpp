@@ -7,7 +7,7 @@
 #include <vector>
 
 /**
- * Measures QBFindMatchingRecords for one generated database size.
+ * Measures QBRecords searches for one generated database size.
  *
  * A Benchmark instance owns its test records so record creation is excluded
  * from the measured search duration.
@@ -15,7 +15,7 @@
 class Benchmark
 {
 public:
-    /** Identifies whether a scenario searches or mutates the collection. */
+    /** Identifies whether a scenario searches or changes the collection. */
     enum class Operation
     {
         Find,
@@ -26,13 +26,13 @@ public:
     struct Config
     {
         // Number of records generated before any scenario runs.
-        uint32_t recordCount = 1000u;
+        uint32_t recordCount {1000u};
 
         // Searches used to warm caches; these searches are not timed.
-        int warmupIterations = 1000;
+        int warmupIterations {1000};
 
         // Searches included in the average search-time calculation.
-        int measuredIterations = 10000;
+        int measuredIterations {10000};
     };
 
     /** Describes one column and value combination to benchmark. */
@@ -41,14 +41,14 @@ public:
         // Stable label written to the console and CSV report.
         std::string name;
 
-        // Column passed to QBFindMatchingRecords.
+        // Column passed to QBRecords::FindMatchingRecords.
         std::string columnName;
 
-        // Search value passed to QBFindMatchingRecords.
+        // Search value passed to QBRecords::FindMatchingRecords.
         std::string matchString;
 
         // Search is the default; delete steps use matchString as a column0 ID.
-        Operation operation = Operation::Find;
+        Operation operation {Operation::Find};
     };
 
     /** Validates the configuration and generates the configured records. */
@@ -84,15 +84,17 @@ private:
         std::size_t matchesFound;
     };
 
-    /** Executes a mutation step and returns a non-timed operation result. */
+    /** Executes a changing step and returns a non-timed operation result. */
     Result deleteRecord(const Scenario& scenario);
 
     /** Warms up and measures one scenario against this instance's records. */
     Result measureFindRecords(const Scenario& scenario) const;
 
-    // Configuration and generated data remain unchanged during a run.
+    // The database owns its collection and numeric inverted indexes. It is a
+    // private benchmark detail so scenarios can only interact through the
+    // measured find and delete operations.
     Config config;
-    QBRecordCollection records;
+    QBRecords records;
 
     // Results are populated by run() and consumed by both report methods.
     std::vector<Result> results;

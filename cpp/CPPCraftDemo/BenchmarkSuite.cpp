@@ -11,8 +11,8 @@ const uint32_t BenchmarkSuite::measuredRecordChecks = 10000000U;
 BenchmarkSuite::BenchmarkSuite(
     const std::vector<uint32_t>& recordCounts,
     const std::vector<Benchmark::Scenario>& scenarios)
-    : recordCounts(recordCounts),
-      scenarios(scenarios)
+    : recordCounts{ recordCounts },
+      scenarios{ scenarios }
 {
     // A suite without database sizes or searches cannot produce measurements.
     if (recordCounts.empty())
@@ -53,11 +53,13 @@ Benchmark::Config BenchmarkSuite::createConfig(uint32_t recordCount) const
     // Constant-work formula:
     //     iterations = target record checks / records per search
     //
-    // QBFindMatchingRecords currently performs a linear scan, so one search
-    // checks recordCount records. For example, measuredRecordChecks=10,000,000
-    // produces 10,000 searches for 1,000 records, 1,000 searches for 10,000
-    // records, and 100 searches for 100,000 records. Each configuration then
-    // checks about 10,000,000 records while still reporting time per search.
+    // String substring searches still scan recordCount records. For example,
+    // measuredRecordChecks=10,000,000 produces 10,000 searches for 1,000
+    // records, 1,000 searches for 10,000 records, and 100 searches for 100,000
+    // records. Each string configuration therefore checks approximately
+    // 10,000,000 records while still reporting time per search. Indexed
+    // numeric searches use the same repetition count for a comparable suite
+    // sequence, although they no longer scan the entire database.
     // max(1, ...) guarantees that datasets larger than the work target still
     // execute at least one search.
     config.warmupIterations = static_cast<int>(

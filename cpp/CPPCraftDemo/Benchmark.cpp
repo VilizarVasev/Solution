@@ -7,7 +7,8 @@
 #include <stdexcept>
 
 Benchmark::Benchmark(const Config& benchmarkConfig)
-    : config(benchmarkConfig)
+    : config{ benchmarkConfig },
+      records{ benchmarkConfig.recordCount }
 {
     // Zero or negative values would produce empty data or invalid averages.
     if (config.recordCount == 0)
@@ -24,7 +25,7 @@ Benchmark::Benchmark(const Config& benchmarkConfig)
     }
 
     // Generate data once so setup time is not included in search timings.
-    records = populateDummyData("testdata", config.recordCount);
+    records.PopulateDummyData("testdata");
 }
 
 void Benchmark::run(const std::vector<Scenario>& scenarios)
@@ -52,7 +53,7 @@ Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
     }
 
     const uint32_t id = std::stoul(scenario.matchString);
-    if (!DeleteRecordByID(records, id))
+    if (!records.DeleteRecordById(id))
     {
         throw std::runtime_error(
             scenario.name + " could not find the requested record ID");
@@ -66,7 +67,7 @@ Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
         scenario.operation,
         scenario.columnName,
         scenario.matchString,
-        records.size(),
+        records.Size(),
         0,
         0.0,
         0
@@ -81,28 +82,27 @@ Benchmark::Result Benchmark::measureFindRecords(
     volatile std::size_t warmupMatches = 0;
     for (int iteration = 0; iteration < config.warmupIterations; ++iteration)
     {
-        warmupMatches += QBFindMatchingRecords(
-            records,
+        warmupMatches += records.FindMatchingRecords(
             scenario.columnName,
             scenario.matchString).size();
     }
 
     // matchesFound records the cardinality of the final measured search.
     // It is independent of the number of benchmark repetitions.
-    std::size_t matchesFound = 0;
+    std::size_t matchesFound {0};
 
     // Every result size is consumed through a volatile sink. This prevents
     // dead-code elimination without adding the accumulated count to reports.
-    volatile std::size_t resultCountSink = 0;
+    volatile std::size_t resultCountSink {0};
 
     // Only repeated searches are inside this measurement interval.
     auto start = std::chrono::steady_clock::now();
     for (int iteration = 0; iteration < config.measuredIterations; ++iteration)
     {
-        const QBRecordCollection matchingRecords = QBFindMatchingRecords(
-            records,
-            scenario.columnName,
-            scenario.matchString);
+        const QBRecords::RecordCollection matchingRecords =
+            records.FindMatchingRecords(
+                scenario.columnName,
+                scenario.matchString);
         matchesFound = matchingRecords.size();
         resultCountSink += matchesFound;
     }
@@ -114,14 +114,14 @@ Benchmark::Result Benchmark::measureFindRecords(
     // Formula:
     // average milliseconds per search = total milliseconds / search count.
     // Repetition improves timing stability while this division keeps the
-    // reported value representative of one QBFindMatchingRecords call.
+    // reported value representative of one FindMatchingRecords call.
     return
     {
         scenario.name,
         scenario.operation,
         scenario.columnName,
         scenario.matchString,
-        records.size(),
+        records.Size(),
         config.measuredIterations,
         elapsedMilliseconds / config.measuredIterations,
         matchesFound
