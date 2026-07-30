@@ -11,6 +11,12 @@ scenarios use the same repetition count. The benchmark consumes each returned
 collection and records both its final match count and the average time per
 search in `benchmark-results.csv`.
 
+Search results contain read-only record references instead of copied records.
+This measures lookup and lightweight result collection without including
+complete record and string copies. Each result is consumed before the next
+database mutation because its references are invalidated by deletion or
+repopulation.
+
 Run the benchmark from PowerShell:
 
 ```powershell

@@ -25,18 +25,42 @@ int main(int argc, char* argv[])
         // and result cardinalities differ in QBRecords::FindMatchingRecords.
         const std::vector<Benchmark::Scenario> scenarios =
         {
-            { "string-hit", "column1", "testdata524" },
-            { "numeric-before-delete", "column2", "24" },
-            { "id-before-delete", "column0", "524" },
+            {
+                "string-hit",
+                QBRecords::Column::Column1,
+                "testdata524"
+            },
+            {
+                "numeric-before-delete",
+                QBRecords::Column::Column2,
+                "24"
+            },
+            {
+                "id-before-delete",
+                QBRecords::Column::Column0,
+                "524"
+            },
             {
                 "delete-id-524",
-                "column0",
+                QBRecords::Column::Column0,
                 "524",
                 Benchmark::Operation::DeleteById
             },
-            { "id-after-delete", "column0", "524" },
-            { "numeric-after-delete", "column2", "24" },
-            { "string-after-delete", "column1", "testdata524" }
+            {
+                "id-after-delete",
+                QBRecords::Column::Column0,
+                "524"
+            },
+            {
+                "numeric-after-delete",
+                QBRecords::Column::Column2,
+                "24"
+            },
+            {
+                "string-after-delete",
+                QBRecords::Column::Column1,
+                "testdata524"
+            }
         };
 
         // The suite applies every scenario to every configured database size.

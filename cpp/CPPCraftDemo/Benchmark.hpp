@@ -41,8 +41,8 @@ public:
         // Stable label written to the console and CSV report.
         std::string name;
 
-        // Column passed to QBRecords::FindMatchingRecords.
-        std::string columnName;
+        // Pre-resolved column passed to QBRecords::FindMatchingRecords.
+        QBRecords::Column column;
 
         // Search value passed to QBRecords::FindMatchingRecords.
         std::string matchString;

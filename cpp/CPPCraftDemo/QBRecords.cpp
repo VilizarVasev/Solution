@@ -1,31 +1,16 @@
 #include "QBRecords.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <functional>
-#include <iterator>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
 
-/** Centralizes the full scan and copy operation used by string columns. */
-template <typename Predicate>
-QBRecords::RecordCollection QBRecords::copyMatchingRecords(
-    Predicate predicate) const
-{
-    // A search returns independent record values. The source collection is
-    // const, so matching records are copied and the database remains intact.
-    RecordCollection result;
+// Static constants definitions
+const std::size_t QBRecords::columnCount = 4U;
 
-    // copy_if evaluates the supplied column predicate for every record.
-    // back_inserter grows the result only when the predicate reports a match.
-    std::copy_if(
-        records.begin(),
-        records.end(),
-        std::back_inserter(result),
-        predicate);
-    return result;
-}
 
 QBRecords::QBRecords(uint32_t configuredRecordCount)
     : recordCount{ configuredRecordCount }
@@ -38,10 +23,35 @@ QBRecords::QBRecords(uint32_t configuredRecordCount)
     }
 }
 
+/** Centralizes the full scan and reference collection used by string columns. */
+template <typename Predicate>
+QBRecords::RecordReferenceCollection
+QBRecords::collectMatchingRecordReferences(
+    Predicate predicate) const
+{
+    // Store read-only references rather than copying complete records and
+    // their strings. The result therefore depends on this database's lifetime
+    // and must not survive a later population or deletion operation.
+    RecordReferenceCollection result;
+
+    // Substring matching still examines every record. Only matching records
+    // contribute one pointer-sized reference wrapper to the result vector.
+    for (const Record& record : records)
+    {
+        if (predicate(record))
+        {
+            result.emplace_back(std::cref(record));
+        }
+    }
+    return result;
+}
+
 void QBRecords::PopulateDummyData(std::string_view prefix)
 {
     // Rebuilding starts from a clean database so calling this public method a
     // second time cannot leave record positions from an earlier population.
+    // Clearing the owning vector invalidates all previously returned record
+    // references, as documented by FindMatchingRecords.
     records.clear();
     column0Index.clear();
     column2Index.clear();
@@ -94,8 +104,8 @@ void QBRecords::PopulateDummyData(std::string_view prefix)
     }
 }
 
-QBRecords::RecordCollection QBRecords::FindMatchingRecords(
-    std::string_view columnName,
+QBRecords::RecordReferenceCollection QBRecords::FindMatchingRecords(
+    Column column,
     std::string_view matchString) const
 {
     // Preserve the previous behavior for an empty database: there is no match
@@ -105,34 +115,55 @@ QBRecords::RecordCollection QBRecords::FindMatchingRecords(
         return {};
     }
 
-    // The hash lookup and member-function dispatch happen once per query.
-    // String-view keys refer to string literals with static lifetime, so the
-    // map does not allocate or copy column-name strings.
-    static const std::unordered_map<std::string_view, FindFunction> findFunctions =
+    // Enum values map directly to array positions. This avoids hashing and
+    // comparing a column-name string on every repeated benchmark search.
+    static constexpr std::array<FindFunction, columnCount> findFunctions =
     {
-        { "column0", &QBRecords::findByColumn0 },
-        { "column1", &QBRecords::findByColumn1 },
-        { "column2", &QBRecords::findByColumn2 },
-        { "column3", &QBRecords::findByColumn3 }
+        &QBRecords::findByColumn0,
+        &QBRecords::findByColumn1,
+        &QBRecords::findByColumn2,
+        &QBRecords::findByColumn3
     };
 
-    const auto findFunction = findFunctions.find(columnName);
-    if (findFunction == findFunctions.end())
+    const std::size_t columnIndex = static_cast<std::size_t>(column);
+    if (columnIndex >= findFunctions.size())
     {
-        // An unsupported column is treated as a search with no results rather
-        // than falling back to an ambiguous comparison rule.
+        // Guard against a Column produced by an invalid explicit cast.
         return {};
     }
 
     // Invoke the selected private member function on this database instance.
     return std::invoke(
-        findFunction->second,
+        findFunctions[columnIndex],
         *this,
         matchString);
 }
 
+std::string_view QBRecords::GetColumnName(Column column) const noexcept
+{
+    // This table follows the exact order of the Column enum and dispatch table.
+    static constexpr std::array<std::string_view, columnCount> columnNames =
+    {
+        "column0",
+        "column1",
+        "column2",
+        "column3"
+    };
+
+    const std::size_t columnIndex = static_cast<std::size_t>(column);
+    if (columnIndex >= columnNames.size())
+    {
+        return "unknown";
+    }
+
+    return columnNames[columnIndex];
+}
+
 bool QBRecords::DeleteRecordById(uint32_t id)
 {
+    // Any successful deletion invalidates all earlier search results. The
+    // deleted record is destroyed, and swap-and-pop can change which record
+    // occupies the deleted vector position.
     // column0 is unique, so its index identifies the target without scanning.
     const auto indexedRecord = column0Index.find(id);
     if (indexedRecord == column0Index.end())
@@ -289,7 +320,7 @@ Integer QBRecords::parseNumericValue(std::string_view matchString) const
     return value;
 }
 
-QBRecords::RecordCollection QBRecords::findByColumn0(
+QBRecords::RecordReferenceCollection QBRecords::findByColumn0(
     std::string_view matchString) const
 {
     // Convert the textual API input once and use the numeric ID as a hash key.
@@ -302,17 +333,17 @@ QBRecords::RecordCollection QBRecords::findByColumn0(
         return {};
     }
 
-    // A column0 lookup can return at most one copied record because IDs are
-    // unique across the database.
-    return { records[indexedRecord->second] };
+    // A column0 lookup can return at most one reference because IDs are unique
+    // across the database. cref explicitly preserves read-only access.
+    return { std::cref(records[indexedRecord->second]) };
 }
 
-QBRecords::RecordCollection QBRecords::findByColumn1(
+QBRecords::RecordReferenceCollection QBRecords::findByColumn1(
     std::string_view matchString) const
 {
     // Substring semantics cannot use the exact-value numeric indexes. Scan
-    // column1 and copy every record containing matchString anywhere in it.
-    return copyMatchingRecords(
+    // column1 and reference every record containing matchString anywhere in it.
+    return collectMatchingRecordReferences(
         [matchString](const Record& record)
         {
             return std::string_view(record.column1).find(matchString) !=
@@ -320,7 +351,7 @@ QBRecords::RecordCollection QBRecords::findByColumn1(
         });
 }
 
-QBRecords::RecordCollection QBRecords::findByColumn2(
+QBRecords::RecordReferenceCollection QBRecords::findByColumn2(
     std::string_view matchString) const
 {
     // The inverted index returns only positions whose column2 equals the
@@ -332,24 +363,24 @@ QBRecords::RecordCollection QBRecords::findByColumn2(
         return {};
     }
 
-    // Reserve the known number of matches so copying results cannot repeatedly
-    // reallocate the output vector.
-    RecordCollection result;
+    // Reserve the known number of matches so collecting references cannot
+    // repeatedly reallocate the output vector.
+    RecordReferenceCollection result;
     result.reserve(indexedRecords->second.size());
-    // Convert indexed positions back into the independent record collection
-    // required by the public search interface.
+    // Convert indexed positions into read-only references. No Record or string
+    // object is copied while materializing the public search result.
     for (std::size_t recordIndex : indexedRecords->second)
     {
-        result.push_back(records[recordIndex]);
+        result.emplace_back(std::cref(records[recordIndex]));
     }
     return result;
 }
 
-QBRecords::RecordCollection QBRecords::findByColumn3(
+QBRecords::RecordReferenceCollection QBRecords::findByColumn3(
     std::string_view matchString) const
 {
     // column3 uses the same substring rule as column1 but scans its own field.
-    return copyMatchingRecords(
+    return collectMatchingRecordReferences(
         [matchString](const Record& record)
         {
             return std::string_view(record.column3).find(matchString) !=

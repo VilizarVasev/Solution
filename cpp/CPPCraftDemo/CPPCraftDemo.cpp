@@ -17,8 +17,12 @@ int main(int argc, _TCHAR* argv[])
     // Preserve the original combined profiler for the interactive demo. The
     // automated benchmark measures these scenarios separately and repeatedly.
     auto startTimer = steady_clock::now();
-    auto filteredSet = data.FindMatchingRecords("column1", "testdata500");
-    auto filteredSet2 = data.FindMatchingRecords("column2", "24");
+    auto filteredSet = data.FindMatchingRecords(
+        QBRecords::Column::Column1,
+        "testdata500");
+    auto filteredSet2 = data.FindMatchingRecords(
+        QBRecords::Column::Column2,
+        "24");
     std::cout << "profiler: " << double((steady_clock::now() - startTimer).count()) * steady_clock::period::num / steady_clock::period::den << std::endl;
 
     // Retain the original smoke test for the string-search result.

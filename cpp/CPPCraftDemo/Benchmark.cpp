@@ -46,7 +46,7 @@ void Benchmark::run(const std::vector<Scenario>& scenarios)
 
 Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
 {
-    if (scenario.columnName != "column0")
+    if (scenario.column != QBRecords::Column::Column0)
     {
         throw std::invalid_argument(
             "DeleteById scenarios must target column0");
@@ -65,7 +65,7 @@ Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
     {
         scenario.name,
         scenario.operation,
-        scenario.columnName,
+        std::string(records.GetColumnName(scenario.column)),
         scenario.matchString,
         records.Size(),
         0,
@@ -83,7 +83,7 @@ Benchmark::Result Benchmark::measureFindRecords(
     for (int iteration = 0; iteration < config.warmupIterations; ++iteration)
     {
         warmupMatches += records.FindMatchingRecords(
-            scenario.columnName,
+            scenario.column,
             scenario.matchString).size();
     }
 
@@ -99,9 +99,9 @@ Benchmark::Result Benchmark::measureFindRecords(
     auto start = std::chrono::steady_clock::now();
     for (int iteration = 0; iteration < config.measuredIterations; ++iteration)
     {
-        const QBRecords::RecordCollection matchingRecords =
+        const QBRecords::RecordReferenceCollection matchingRecords =
             records.FindMatchingRecords(
-                scenario.columnName,
+                scenario.column,
                 scenario.matchString);
         matchesFound = matchingRecords.size();
         resultCountSink += matchesFound;
@@ -119,7 +119,7 @@ Benchmark::Result Benchmark::measureFindRecords(
     {
         scenario.name,
         scenario.operation,
-        scenario.columnName,
+        std::string(records.GetColumnName(scenario.column)),
         scenario.matchString,
         records.Size(),
         config.measuredIterations,

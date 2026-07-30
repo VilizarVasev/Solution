@@ -2,12 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
 
 using std::uint32_t;
+using std::uint8_t;
 
 /**
  * Owns the records and the indexes used to search their numeric columns.
@@ -19,6 +21,15 @@ using std::uint32_t;
 class QBRecords
 {
 public:
+    /** Identifies one searchable record column without string dispatch. */
+    enum class Column : uint8_t
+    {
+        Column0,
+        Column1,
+        Column2,
+        Column3
+    };
+
     /** Represents one row owned and returned by this database. */
     struct Record
     {
@@ -28,8 +39,11 @@ public:
         std::string column3;
     };
 
-    /** Contiguous result type returned by record searches. */
-    using RecordCollection = std::vector<Record>;
+    /** Non-owning, read-only handle to one database record. */
+    using RecordReference = std::reference_wrapper<const Record>;
+
+    /** Lightweight non-owning result type returned by record searches. */
+    using RecordReferenceCollection = std::vector<RecordReference>;
 
     /** Stores the final number of records that PopulateDummyData will create. */
     explicit QBRecords(uint32_t recordCount);
@@ -47,12 +61,20 @@ public:
     void PopulateDummyData(std::string_view prefix);
 
     /**
-     * Returns records matching the requested column and value.
+     * Returns read-only references matching the requested column and value.
      * Numeric columns use equality; string columns use substring matching.
+     *
+     * The references avoid copying complete records and their strings. They
+     * remain valid only while this QBRecords object exists and until its next
+     * change. PopulateDummyData and a successful DeleteRecordById invalidate
+     * every result previously returned by this object.
      */
-    RecordCollection FindMatchingRecords(
-        std::string_view columnName,
+    RecordReferenceCollection FindMatchingRecords(
+        Column column,
         std::string_view matchString) const;
+
+    /** Returns the stable report name associated with a column value. */
+    std::string_view GetColumnName(Column column) const noexcept;
 
     /**
      * Deletes the unique column0 ID using index lookup and swap-and-pop.
@@ -64,9 +86,13 @@ public:
     std::size_t Size() const noexcept;
 
 private:
-    /** Copies records accepted by a predicate from this database. */
+    /** Owning contiguous storage for the database itself. */
+    using RecordCollection = std::vector<Record>;
+
+    /** Collects non-owning references accepted by a predicate. */
     template <typename Predicate>
-    RecordCollection copyMatchingRecords(Predicate predicate) const;
+    RecordReferenceCollection collectMatchingRecordReferences(
+        Predicate predicate) const;
 
     /** Adds one newly appended record to the unique column0 index. */
     void addColumn0Index(std::size_t recordIndex);
@@ -88,19 +114,26 @@ private:
     Integer parseNumericValue(std::string_view matchString) const;
 
     /** Uses the unique ID index for an average constant-time lookup. */
-    RecordCollection findByColumn0(std::string_view matchString) const;
+    RecordReferenceCollection findByColumn0(
+        std::string_view matchString) const;
 
     /** Scans column1 because it requires substring matching. */
-    RecordCollection findByColumn1(std::string_view matchString) const;
+    RecordReferenceCollection findByColumn1(
+        std::string_view matchString) const;
 
     /** Uses the non-unique numeric index to retrieve all matching records. */
-    RecordCollection findByColumn2(std::string_view matchString) const;
+    RecordReferenceCollection findByColumn2(
+        std::string_view matchString) const;
 
     /** Scans column3 because it requires substring matching. */
-    RecordCollection findByColumn3(std::string_view matchString) const;
+    RecordReferenceCollection findByColumn3(
+        std::string_view matchString) const;
 
     /** Derives the common finder pointer type from one finder declaration. */
     using FindFunction = decltype(&QBRecords::findByColumn0);
+
+    /** Number of valid Column values and entries in each dispatch array. */
+    static const std::size_t columnCount;
 
     // The configured population size is distinct from the current size,
     // which can decrease when records are deleted.
