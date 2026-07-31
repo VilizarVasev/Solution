@@ -53,11 +53,11 @@ Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
     }
 
     const uint32_t id = std::stoul(scenario.matchString);
-    if (!records.DeleteRecordById(id))
-    {
-        throw std::runtime_error(
-            scenario.name + " could not find the requested record ID");
-    }
+
+    // A missing ID is an expected database outcome, not a benchmark failure.
+    // Preserve the false result for console reporting and continue so the
+    // following find scenario can write matches_found=0 to the CSV report.
+    const bool recordDeleted = records.DeleteRecordById(id);
 
     // Deletion is performed once between measured searches. Zero iterations
     // and blank measurement columns distinguish it from benchmarked finds.
@@ -70,7 +70,8 @@ Benchmark::Result Benchmark::deleteRecord(const Scenario& scenario)
         records.Size(),
         0,
         0.0,
-        0
+        0,
+        recordDeleted
     };
 }
 
@@ -124,7 +125,8 @@ Benchmark::Result Benchmark::measureFindRecords(
         records.Size(),
         config.measuredIterations,
         elapsedMilliseconds / config.measuredIterations,
-        matchesFound
+        matchesFound,
+        false
     };
 }
 
@@ -191,10 +193,18 @@ void Benchmark::printResults() const
     {
         if (result.operation == Operation::DeleteById)
         {
-            std::cout << result.scenario << ": deleted "
-                      << result.columnName << '=' << result.matchValue
-                      << ", records: " << result.recordCount
-                      << std::endl;
+            std::cout << result.scenario << ": ";
+            if (result.recordDeleted)
+            {
+                std::cout << "deleted ";
+            }
+            else
+            {
+                std::cout << "record not found ";
+            }
+
+            std::cout << result.columnName << '=' << result.matchValue
+                      << ", records: " << result.recordCount << std::endl;
             continue;
         }
 

@@ -31,12 +31,17 @@ int main(int argc, char* argv[])
                 "testdata524"
             },
             {
-                "numeric-before-delete",
+                "string-hit",
+                QBRecords::Column::Column3,
+                "524testdata"
+            },
+            {
+                "numeric-hit",
                 QBRecords::Column::Column2,
                 "24"
             },
             {
-                "id-before-delete",
+                "id-hit",
                 QBRecords::Column::Column0,
                 "524"
             },
@@ -60,6 +65,11 @@ int main(int argc, char* argv[])
                 "string-after-delete",
                 QBRecords::Column::Column1,
                 "testdata524"
+            },
+            {
+                "string-after-delete",
+                QBRecords::Column::Column3,
+                "524testdata"
             }
         };
 

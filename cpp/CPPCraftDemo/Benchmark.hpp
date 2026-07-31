@@ -82,6 +82,9 @@ private:
         int iterations;
         double averageMilliseconds;
         std::size_t matchesFound;
+
+        // Relevant only to DeleteById results. A missing ID is a valid no-op.
+        bool recordDeleted;
     };
 
     /** Executes a changing step and returns a non-timed operation result. */
